@@ -55,8 +55,8 @@ SCF = DFT.SCF
 # white space and printed into input file. Repeatable keywords can also be
 # defined as lists, but in this case each list item corresponds to a new
 # repeated item. For an example of these features see examples/example_qmmm.py.
-GLOBAL.Run_type = "ENERGY_FORCE"
-GLOBAL.Print_level = "LOW"
+GLOBAL.Run_type.ENERGY_FORCE
+GLOBAL.Print_level.LOW
 
 # These utility functions will create entries to the input tree from the ASE
 # Atoms object created earlier. As arguments these two functions take the
@@ -65,25 +65,25 @@ GLOBAL.Print_level = "LOW"
 calc.create_cell(SUBSYS, lattice)
 calc.create_coord(SUBSYS, lattice)
 
-FORCE_EVAL.Method = "Quickstep"
-FORCE_EVAL.PRINT.FORCES.Section_parameters = "ON"
+FORCE_EVAL.Method.QUICKSTEP
+FORCE_EVAL.PRINT.FORCES.Section_parameters.ON
 DFT.Basis_set_file_name = "/home/lauri/BASIS_SET"
 DFT.Potential_file_name = "/home/lauri/GTH_POTENTIALS"
 DFT.QS.Eps_default = 1.0E-10
 DFT.MGRID.Ngrids = 4
 DFT.MGRID.Cutoff = 300
 DFT.MGRID.Rel_cutoff = 60
-DFT.XC.XC_FUNCTIONAL.Section_parameters = "PADE"
-SCF.Scf_guess = "ATOMIC"
+DFT.XC.XC_FUNCTIONAL.Section_parameters.PADE
+SCF.Scf_guess.ATOMIC
 SCF.Eps_scf = 1.0E-7
 SCF.Max_scf = 300
 SCF.DIAGONALIZATION.Section_parameters = "ON"
-SCF.DIAGONALIZATION.Algorithm = "STANDARD"
-SCF.MIXING.Section_parameters = "T"
-SCF.MIXING.Method = "BROYDEN_MIXING"
+SCF.DIAGONALIZATION.Algorithm.STANDARD
+SCF.MIXING.Section_parameters = "TRUE"
+SCF.MIXING.Method.BROYDEN_MIXING
 SCF.MIXING.Alpha = 0.4
 SCF.MIXING.Nbroyden = 8
-FORCE_EVAL.PRINT.FORCES.Section_parameters = "ON"
+FORCE_EVAL.PRINT.FORCES.Section_parameters.ON
 
 KIND = SUBSYS.KIND_add("Si")  # Section_parameters can be provided as argument.
 KIND.Basis_set = "DZVP-GTH-PADE"

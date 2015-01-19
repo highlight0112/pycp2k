@@ -18,7 +18,7 @@ class printable(object):
         ).format(attr)
         raise AttributeError(message)
 
-    def parse_default_keyword(self, item, level):
+    def _parse_default_keyword(self, item, level):
         """Parses default keywords into sensible input sections."""
         if type(item) is list:
             output = (level + 1) * "  "
@@ -31,7 +31,7 @@ class printable(object):
         else:
             return (level + 1) * "  " + str(item) + "\n"
 
-    def parse_repeatable_default_keyword(self, item, level):
+    def _parse_repeatable_default_keyword(self, item, level):
         """Parses repeatable default keywords into sensible input sections."""
         if type(item) is list:
             output = ""
@@ -49,7 +49,7 @@ class printable(object):
         else:
             return (level + 1) * "  " + str(item) + "\n"
 
-    def parse_keyword(self, item, name, level):
+    def _parse_keyword(self, item, name, level):
         """Parses non-repeatable keywords into sensible input sections."""
         if type(item) is list:
             output = (level + 1) * "  " + name
@@ -64,7 +64,7 @@ class printable(object):
         else:
             return (level + 1) * "  " + name + " " + str(item) + "\n"
 
-    def parse_repeatable_keyword(self, item, name, level):
+    def _parse_repeatable_keyword(self, item, name, level):
         """Parses repeatable keywords into sensible input sections."""
         if type(item) is list:
             output = ""
@@ -80,7 +80,17 @@ class printable(object):
         else:
             return (level + 1) * "  " + name + " " + str(item) + "\n"
 
-    def check_typos(self):
+    def _is_empty(self, item):
+        if item is None:
+            return True
+        if (type(item) is list and not item):
+            return True
+        if hasattr(item, "_value"):
+            if item._value is None:
+                return True
+        return False
+
+    def _check_typos(self):
         for attribute in self.__dict__.iterkeys():
             typos_found = True
             if attribute in self._keywords.iterkeys():
@@ -107,7 +117,7 @@ class printable(object):
                     " capitalized)."
                 ).format(attribute, self._name))
 
-    def print_input(self, level):
+    def _print_input(self, level):
 
         # Check if any undefined items have been created. These are usually typos.
         self.check_typos()
@@ -116,34 +126,30 @@ class printable(object):
         # Non-repeatable default keywords
         for attname, realname in self._default_keywords.iteritems():
             value = self.__dict__[attname]
-            if value is not None:
-                if not (type(value) is list and not value):
+            if not self.is_empty(value):
                     parsed = self.parse_default_keyword(value, level)
                     inp += parsed
 
         # Repeatable default keywords
         for attname, realname in self._repeated_default_keywords.iteritems():
             keyword = self.__dict__[attname]
-            if keyword is not None:
-                if not (type(keyword) is list and not keyword):
-                    parsed = self.parse_repeatable_default_keyword(keyword, level)
-                    inp += parsed
+            if not self.is_empty(keyword):
+                parsed = self.parse_repeatable_default_keyword(keyword, level)
+                inp += parsed
 
         # Non-repeatable keywords
         for attname, realname in self._keywords.iteritems():
             value = self.__dict__[attname]
-            if value is not None:
-                if not (type(value) is list and not value):
-                    parsed = self.parse_keyword(value, realname, level)
-                    inp += parsed
+            if not self.is_empty(value):
+                parsed = self.parse_keyword(value, realname, level)
+                inp += parsed
 
         # Repeatable keywords
         for attname, realname in self._repeated_keywords.iteritems():
             keyword = self.__dict__[attname]
-            if keyword is not None:
-                if not (type(keyword) is list and not keyword):
-                    parsed = self.parse_repeatable_keyword(keyword, realname, level)
-                    inp += parsed
+            if not self.is_empty(keyword):
+                parsed = self.parse_repeatable_keyword(keyword, realname, level)
+                inp += parsed
 
         # Non-repeatable subsections
         for attname, realname in self._subsections.iteritems():
@@ -166,7 +172,7 @@ class printable(object):
             has_section_parameter = False
             inp_header = level * "  " + "&" + self._name
             if hasattr(self, "Section_parameters"):
-                if self.Section_parameters is not None:
+                if not self.is_empty(self.Section_parameters):
                     parsed = self.parse_default_keyword(self.Section_parameters, -1)
                     inp_header += " " + parsed
                     has_section_parameter = True

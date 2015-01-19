@@ -26,9 +26,21 @@ def validify_section(string):
         changed = True
         string = string.replace("+", "PLUS")
 
+    if "(" in string:
+        changed = True
+        string = string.replace("(", "_")
+
+    if ")" in string:
+        changed = True
+        string = string.replace(")", "")
+
     if string[0].isdigit():
         changed = True
         string = "NUM" + string
+
+    if string[0] == "_" and string[1] != "_":
+        changed = True
+        string = string[1:]
 
     if changed:
         print "    Section {} replaced with {}".format(original, string)
@@ -51,9 +63,21 @@ def validify_keyword(string):
         changed = True
         string = string.replace("+", "PLUS")
 
+    if "(" in string:
+        changed = True
+        string = string.replace("(", "_")
+
+    if ")" in string:
+        changed = True
+        string = string.replace(")", "")
+
     if string[0].isdigit():
         changed = True
         string = "NUM" + string
+
+    if string[0] == "_" and string[1] != "_":
+        changed = True
+        string = string[1:]
 
     if changed:
         print "    Keyword {} replaced with {}".format(original, string)
@@ -102,6 +126,52 @@ def create_docstring(item):
                 output += "            " + line + "\n"
     output += "        \"\"\"\n"
     return output
+
+
+#===============================================================================
+def create_enum_class(keyword, name, class_dictionary, version_dictionary):
+    """Used to create a class for keyword that has certain predefined set of
+    valid options. This provides autocompletion for them."""
+    properties = ""
+    public = ("    def __init__(self):\n"
+              "        \"\"\" Enumeration class.\"\"\"\n"
+              "        self._value = None\n")
+    for enum in keyword.find("DATA_TYPE").find("ENUMERATION").findall("ITEM"):
+        unformatted = enum.find("NAME").text
+        formatted_name = validify_section(unformatted)
+        properties += ("\n    @property\n"
+                       "    def {}(self):\n"
+                       "        self._value = \"{}\"\n").format(formatted_name, unformatted)
+
+    # Write a function for printing original CP2K input files
+    functions = ("\n    def __str__(self):\n"
+                 "        return self._value\n")
+
+    #---------------------------------------------------------------------------
+    # The class names are not unique. Use numbering to identify classes.
+    exists = False
+    class_name = "_" + validify_section(name).lower()
+    class_string = public + properties + functions
+    version_number = version_dictionary.get(class_name)
+
+    if version_number is None:
+        version_dictionary[class_name] = 1
+        class_dictionary[class_name+str(1)] = class_string
+        return class_name+str(1)
+
+    for version in range(version_number):
+        old_class_body = class_dictionary[class_name+str(version + 1)]
+        if old_class_body == class_string:
+            exists = True
+            version_number = version + 1
+            break
+
+    if not exists:
+        version_dictionary[class_name] = version_number + 1
+        class_dictionary[class_name+str(version_number + 1)] = class_string
+        return class_name + str(version_number + 1)
+    else:
+        return class_name + str(version_number)
 
 
 #===============================================================================
@@ -155,8 +225,14 @@ def recursive_class_creation(section, level, class_dictionary, version_dictionar
     # Create attribute for section parameter
     section_parameters = section.find("SECTION_PARAMETERS")
     if section_parameters is not None:
-        attributes.append("Section_parameters")
-        public += "        self.Section_parameters = None\n"
+        name = "Section_parameters"
+        attributes.append(name)
+        datatype = section_parameters.find("DATA_TYPE").get("kind")
+        if datatype == "keyword":
+            enum_class = create_enum_class(section_parameters, name, class_dictionary, version_dictionary)
+            public += "        self.{} = {}()\n".format(name, enum_class)
+        else:
+            public += "        self.Section_parameters = None\n"
 
         # Write the description for the section parameter
         public += create_docstring(section_parameters)
@@ -168,6 +244,8 @@ def recursive_class_creation(section, level, class_dictionary, version_dictionar
         # First find out the default name and whether the attribute is visible or not
         default_name = ""
         visible = True
+        datatype = keyword.find("DATA_TYPE").get("kind")
+
         for keyname in keyword.findall("NAME"):
             keytype = keyname.get("type")
             name = keyname.text
@@ -185,16 +263,27 @@ def recursive_class_creation(section, level, class_dictionary, version_dictionar
 
                 # Create original attribute for the default keyname
                 if newname == default_name:
-
-                    # Special case for repeateable keywords.
-                    if keyword.get("repeats") == "yes":
-                        public += "        self." + newname + " = []\n"
-                        public += create_docstring(keyword)
-                        repeated_keywords[newname] = name
-                    else:
-                        public += "        self." + newname + " = None\n"
-                        public += create_docstring(keyword)
-                        keywords[newname] = name
+                        # Special case for repeateable keywords.
+                        if keyword.get("repeats") == "yes":
+                            # If the keyword can only be assigned a value from a predefined list, a
+                            # new class is created for it which provides autcompletion
+                            if datatype == "keyword":
+                                enum_class = create_enum_class(keyword, name, class_dictionary, version_dictionary)
+                                public += "        self.{} = {}()\n".format(newname, enum_class)
+                                public += create_docstring(keyword)
+                            else:
+                                public += "        self." + newname + " = []\n"
+                                public += create_docstring(keyword)
+                            repeated_keywords[newname] = name
+                        else:
+                            if datatype == "keyword":
+                                enum_class = create_enum_class(keyword, name, class_dictionary, version_dictionary)
+                                public += "        self.{} = {}()\n".format(newname, enum_class)
+                                public += create_docstring(keyword)
+                            else:
+                                public += "        self." + newname + " = None\n"
+                                public += create_docstring(keyword)
+                            keywords[newname] = name
 
                 # Create properties for aliases
                 else:
@@ -279,8 +368,8 @@ def recursive_class_creation(section, level, class_dictionary, version_dictionar
                       "        return new_section\n\n")
 
     # Write a function for printing original CP2K input files
-    functions += ("    def print_input(self, level):\n"
-                  "        return printable.print_input(self, level)\n")
+    functions += ("    def _print_input(self, level):\n"
+                  "        return printable._print_input(self, level)\n")
 
     #---------------------------------------------------------------------------
     # The class names are not unique. Use numbering to identify classes.
@@ -322,8 +411,10 @@ def main(xml_path):
         "\"\"\"This module holds all the classes parsed from xml file created with command\ncp2k --xml\"\"\"\n\n"
         "from pycp2k.printable import printable\n"
     )
-    class_dictionary = {}
-    version_dictionary = {}
+
+    # Create the classes recursively
+    class_dictionary = {}  # Contains the classes as strings
+    version_dictionary = {}  # A version counter for each class name
     recursive_class_creation(root, 0, class_dictionary, version_dictionary)
 
     # Write one module containing all the parsed classes.
